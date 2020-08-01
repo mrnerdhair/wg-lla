@@ -1,4 +1,5 @@
 #!/bin/bash -e
+# SPDX-License-Identifier: CC0-1.0
 
 blake2s_mix() {
     local A_NAME="$1"
