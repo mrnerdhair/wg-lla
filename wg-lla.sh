@@ -123,7 +123,7 @@ wg_lla() {
 }
 
 KEYS_ONLY=0
-while printf '%s' "$1" | grep -Eq '[0-9A-Za-z]{43}='; do
+while printf '%s' "$1" | grep -Eq '[0-9A-Za-z+/]{43}='; do
     KEYS_ONLY=1
     printf '%s' "$1" | wg_lla
     shift
