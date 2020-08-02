@@ -100,11 +100,35 @@ blake2s() {
     printf '\n'
 }
 
+HAS_B2SUM=0
+if TESTHASH="$(printf '' | b2sum -a blake2s /proc/self/fd/0 2>/dev/null)"; then
+    TESTHASH="$(printf '%s' "$TESTHASH" | grep -Eo '[0-9a-f]{64}')"
+    if [ "$TESTHASH" == "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9" ]; then
+        HAS_B2SUM=1
+    fi
+fi
+
+blake2s-256() {
+    if [ $HAS_B2SUM -eq 1 ]; then
+        b2sum -a blake2s /proc/self/fd/0 | grep -Eo '[0-9a-f]{64}'
+    else
+        blake2s 32
+    fi
+}
+
 wg_lla() {
     local WORDS
-    eval "WORDS=($(base64 -d | blake2s 32 | sed -r 's/[0-9a-f]{4}/0x\0 /g'))"
+    eval "WORDS=($(base64 -d | blake2s-256 | sed -r 's/[0-9a-f]{4}/0x\0 /g'))"
     printf '%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n' "$((0xfe80 | (WORDS[0] & 0x003f)))" "${WORDS[1]}" "${WORDS[2]}" "${WORDS[3]}" "${WORDS[4]}" "${WORDS[5]}" "${WORDS[6]}" "${WORDS[7]}"
 }
+
+KEYS_ONLY=0
+while printf '%s' "$1" | grep -Eq '[0-9A-Za-z]{43}='; do
+    KEYS_ONLY=1
+    printf '%s' "$1" | wg_lla
+    shift
+done
+[ $KEYS_ONLY -ne 0 ] && exit 0
 
 IFACES=("$@")
 
@@ -115,9 +139,10 @@ if [ $# -gt 1 ] && [ "${IFACES[${#IFACES[@]} - 1]}" == "assign" ]; then
 fi
 
 if [ ${#IFACES[@]} -eq 0 ]; then
-    printf 'Usage: %s { <interface> | all | interfaces } [assign]\n\n' "$(basename "$0")" 1>&2
+    printf 'Usage:\t%s { <interface> | all | interfaces } [assign]\n' "$(basename "$0")" 1>&2
+    printf '\t%s { public-key }\n\n' "$(basename "$0")" 1>&2
     printf 'Calculates cryptographically-bound IPv6 Link-Local Addresses for the specified\n' 1>&2
-    printf 'WireGuard interface(s) and its peers.\n' 1>&2
+    printf 'WireGuard interface(s) and its peers, or for specific public keys.\n' 1>&2
     exit 1
 fi
 
